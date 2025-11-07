@@ -8,6 +8,8 @@ BOARD_WIDTH, BOARD_HEIGHT = 600, 600
 FPS = 30
 PLAYER_SIZE = BOARD_WIDTH // 10
 
+
+
 GREY = (128, 128, 128)
 RED = (255, 0, 0)
 BLACK = (0, 0, 0)
@@ -15,10 +17,11 @@ DARK_BLUE = (0, 46, 96)
 LIGHT_BLUE = (173, 216, 230)
 
 # Posição inicial dos jogadores
-local_pos = [100, 100]
-remote_pos = [300, 100]
+local_pos = [1,1]
+remote_pos = [1,1]
 
-local_ship_pos = []
+local_user = []
+user_ships = []
 
 
 # Criação do socket UDP
@@ -52,19 +55,23 @@ def draw_grid(surface, color, tile_size, board_width, board_height):
     for y in range(0, board_height+1, tile_size):
         pygame.draw.line(surface, color, (0, y), (board_width, y))
 
-def set_ship(x,y):
-    pygame.draw.rect(tela, GREY, ((x-1)*PLAYER_SIZE, (y-1)*PLAYER_SIZE, PLAYER_SIZE, PLAYER_SIZE))
-    return ([x * (PLAYER_SIZE-1), y * (PLAYER_SIZE-1), x * PLAYER_SIZE, y * PLAYER_SIZE])
+def set_ship(x,y, user_ships):
+    if user_ships == local_user:
+        paint_block(x, y, GREY)
+        pygame.draw.rect(tela, GREY, (calculate_position(x, y)))
+    user_ships.append((x,y))
 
-def paint_block(x,y):
-    pygame.draw.rect(tela, GREY, (x-1, y-1, PLAYER_SIZE-2, PLAYER_SIZE-2))
+def paint_block(x, y, color):
+    pygame.draw.rect(tela, color, (x-1, y-1, PLAYER_SIZE-2, PLAYER_SIZE-2))
 
 def calculate_position(x, y):
-    row = index // 10
-    col = index % 10
-    x = col * PLAYER_SIZE
-    y = row * PLAYER_SIZE + 60
-    return (x, y)  
+    rect = pygame.Rect((x-1)*PLAYER_SIZE, (y-1)*PLAYER_SIZE, PLAYER_SIZE, PLAYER_SIZE)
+    return rect
+
+def get_click_mapped_position(x, y):
+
+    if pygame.event.get() == pygame.MOUSEBUTTONDOWN:
+        print(x,y)
 
 # Inicia threads
 threading.Thread(target=enviar_posicao, daemon=True).start()
@@ -79,6 +86,7 @@ clock = pygame.time.Clock()
 # Loop principal
 running = True
 while running:
+    events = pygame.event.get()
     clock.tick(FPS)
     tela.fill(LIGHT_BLUE)
     draw_grid(tela, BLACK,PLAYER_SIZE, BOARD_WIDTH, BOARD_HEIGHT)
@@ -87,19 +95,10 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            print(pygame.mouse.get_pos())
 
-    set_ship(2,3)
-
-    # Movimento do jogador local
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT]:
-        local_pos[0] -= 5
-    if keys[pygame.K_RIGHT]:
-        local_pos[0] += 5
-    if keys[pygame.K_UP]:
-        local_pos[1] -= 5
-    if keys[pygame.K_DOWN]:
-        local_pos[1] += 5
+    set_ship(2,3, user_ships)
 
     pygame.display.flip()
 

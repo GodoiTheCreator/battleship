@@ -1,6 +1,7 @@
 import socket
 import pygame
 import threading
+import math
 
 # Configurações
 SCREEN_WIDTH, SCREEN_HEIGHT = 600, 800
@@ -26,8 +27,8 @@ user_ships = []
 
 # Criação do socket UDP
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind(('192.168.0.24', 5000))  # Porta para receber
-remote_addr = ('192.168.0.24', 5001)  # Endereço para enviar (inverso no outro lado)
+sock.bind(('172.23.48.1', 5000))  # Porta para receber
+remote_addr = ('172.23.48.1', 5001)  # Endereço para enviar (inverso no outro lado)
 
 # Envia posição continuamente
 def enviar_posicao():
@@ -56,22 +57,20 @@ def draw_grid(surface, color, tile_size, board_width, board_height):
         pygame.draw.line(surface, color, (0, y), (board_width, y))
 
 def set_ship(x,y, user_ships):
+    x, y = calculate_position(x,y)
     if user_ships == local_user:
         paint_block(x, y, GREY)
-        pygame.draw.rect(tela, GREY, (calculate_position(x, y)))
     user_ships.append((x,y))
 
 def paint_block(x, y, color):
-    pygame.draw.rect(tela, color, (x-1, y-1, PLAYER_SIZE-2, PLAYER_SIZE-2))
+    rect = pygame.Rect((x)*PLAYER_SIZE, (y)*PLAYER_SIZE, PLAYER_SIZE, PLAYER_SIZE)
+    #pygame.draw.rect(tela, color, (x-1, y-1, PLAYER_SIZE-2, PLAYER_SIZE-2))
+    pygame.draw.rect(tela, color, rect)
 
 def calculate_position(x, y):
-    rect = pygame.Rect((x-1)*PLAYER_SIZE, (y-1)*PLAYER_SIZE, PLAYER_SIZE, PLAYER_SIZE)
-    return rect
-
-def get_click_mapped_position(x, y):
-
-    if pygame.event.get() == pygame.MOUSEBUTTONDOWN:
-        print(x,y)
+    x = math.floor(x/PLAYER_SIZE)
+    y = math.floor(y/PLAYER_SIZE)
+    return x, y
 
 # Inicia threads
 threading.Thread(target=enviar_posicao, daemon=True).start()
@@ -84,22 +83,22 @@ pygame.display.set_caption("UDP Multiplayer Demo")
 clock = pygame.time.Clock()
 
 # Loop principal
+tela.fill(LIGHT_BLUE)
+draw_grid(tela, BLACK,PLAYER_SIZE, BOARD_WIDTH, BOARD_HEIGHT)
 running = True
 while running:
     events = pygame.event.get()
     clock.tick(FPS)
-    tela.fill(LIGHT_BLUE)
-    draw_grid(tela, BLACK,PLAYER_SIZE, BOARD_WIDTH, BOARD_HEIGHT)
+
 
     # Eventos
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
+            set_ship(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1], local_user)
             print(pygame.mouse.get_pos())
 
-    set_ship(2,3, user_ships)
-
-    pygame.display.flip()
+    pygame.display.update()
 
 pygame.quit()

@@ -5,71 +5,114 @@ import math
 import time
 import sys
 
-
-# Ler portas via argumento
+# PARÂMETROS DE LINHA DE COMANDO
 if len(sys.argv) != 3:
-    print("Uso correto: python batalha_naval.py <porta_escuta> <porta_envio>")
-    print("Exemplo jogador 1: python batalha_naval.py 5000 5001")
-    print("Exemplo jogador 2: python batalha_naval.py 5001 5000")
+    print("Uso correto:")
+    print("python main.py <porta_escuta_udp> <porta_envio_udp>")
+    print("\nExemplo jogador 1:")
+    print("python main.py 5000 5001")
+    print("\nExemplo jogador 2:")
+    print("python main.py 5001 5000")
     sys.exit(1)
 
-PORT_LISTEN = int(sys.argv[1])   # Porta que este jogador escuta
-PORT_SEND = int(sys.argv[2])     # Porta que envia para o outro
+PORT_UDP_LISTEN = int(sys.argv[1])
+PORT_UDP_SEND = int(sys.argv[2])
 
-print(f"[INFO] Escutando na porta {PORT_LISTEN}, enviando para porta {PORT_SEND}")
+PORT_TCP_LISTEN = 5001  # Porta TCP fixa
 
+print(f"[INFO] UDP escutando em {PORT_UDP_LISTEN}, enviando para {PORT_UDP_SEND}")
+print(f"[INFO] TCP escutando em {PORT_TCP_LISTEN}")
 
-# Configurações do jogo
+# CONFIGURAÇÕES DO JOGO
 SCREEN_WIDTH, SCREEN_HEIGHT = 600, 800
 BOARD_WIDTH, BOARD_HEIGHT = 600, 600
 FPS = 30
 PLAYER_SIZE = BOARD_WIDTH // 10
-
 
 GREY = (128, 128, 128)
 RED = (255, 0, 0)
 BLACK = (0, 0, 0)
 LIGHT_BLUE = (173, 216, 230)
 
-# Posições
 local_pos = [1, 1]
 remote_pos = [1, 1]
 local_user = []
 
+# UDP
+sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock_udp.bind(("", PORT_UDP_LISTEN))
+sock_udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-# Criar socket UDP (cada um bind na SUA porta)
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind(("", PORT_LISTEN))  # Cada instância usa porta diferente
+remote_addr = ("127.0.0.1", PORT_UDP_SEND)
 
-remote_addr = ("127.0.0.1", PORT_SEND)  # Envia localmente entre instâncias
+# TCP
+sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock_tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+sock_tcp.bind(("", PORT_TCP_LISTEN))
+sock_tcp.listen(5)
 
+def send_tcp(ip, port, msg):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((ip, port))
+        s.send(msg.encode())
+        s.close()
+    except Exception as e:
+        print("[ERRO TCP envio]:", e)
 
-# Enviar posição continuamente
+# THREAD: Enviar posição via UDP
 def enviar_posicao():
     while True:
         try:
             msg = f"{local_pos[0]},{local_pos[1]}"
-            sock.sendto(msg.encode(), remote_addr)
+            sock_udp.sendto(msg.encode(), remote_addr)
         except Exception as e:
-            print("[ERRO envio]:", e)
+            print("[ERRO envio UDP]:", e)
         time.sleep(0.1)
 
-
-# Receber posição remota
+# THREAD: Receber posição via UDP
 def receber_posicao():
     global remote_pos
     while True:
         try:
-            data, _ = sock.recvfrom(1024)
+            data, _ = sock_udp.recvfrom(1024)
             x, y = map(int, data.decode().split(","))
             if 0 <= x <= 9 and 0 <= y <= 9:
                 remote_pos = [x, y]
         except:
             continue
 
+# THREAD: Listener TCP
+def tcp_listener():
+    print("[TCP] Aguardando conexões...")
+
+    while True:
+        try:
+            conn, addr = sock_tcp.accept()
+            ip_remoto = addr[0]
+
+            data = conn.recv(1024).decode().strip()
+            print(f"[TCP] Recebido de {ip_remoto}: {data}")
+
+        
+            if data.startswith("scout:"):
+                print("[TCP] Scout recebido")
+
+            elif data == "hit":
+                print("[TCP] Fui acertado!")
+
+            elif data.startswith("info:"):
+                print("[TCP] Informação de direção recebida.")
+
+            conn.close()
+        except Exception as e:
+            print("[ERRO TCP listener]:", e)
+
+# FUNÇÕES DO JOGO
 def draw_grid(surface):
     for x in range(0, BOARD_WIDTH + 1, PLAYER_SIZE):
         pygame.draw.line(surface, BLACK, (x, 0), (x, BOARD_HEIGHT))
+
     for y in range(0, BOARD_HEIGHT + 1, PLAYER_SIZE):
         pygame.draw.line(surface, BLACK, (0, y), (BOARD_WIDTH, y))
 
@@ -88,15 +131,15 @@ def set_ship(x, y, user_ships):
     if (cx, cy) not in user_ships:
         user_ships.append((cx, cy))
 
-
-# Inicia Threads
+# THREADS
 threading.Thread(target=enviar_posicao, daemon=True).start()
 threading.Thread(target=receber_posicao, daemon=True).start()
+threading.Thread(target=tcp_listener, daemon=True).start()
 
-# Pygame
+# LOOP PYGAME
 pygame.init()
 tela = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("UDP Multiplayer (Portas por parâmetro)")
+pygame.display.set_caption("UDP + TCP Multiplayer")
 clock = pygame.time.Clock()
 
 running = True
@@ -120,3 +163,12 @@ while running:
     pygame.display.update()
 
 pygame.quit()
+
+#TESTE TCP MANUAL
+#TERMINAL A: python main.py 5000 5001
+#TERMINAL B:
+# import socket
+#s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#s.connect(("127.0.0.1", 5001))
+#s.send(b"hit")
+#s.close()

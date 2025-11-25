@@ -5,9 +5,8 @@ import math
 import time
 import sys
 
-# =======================
+
 # Ler portas via argumento
-# =======================
 if len(sys.argv) != 3:
     print("Uso correto: python batalha_naval.py <porta_escuta> <porta_envio>")
     print("Exemplo jogador 1: python batalha_naval.py 5000 5001")
@@ -19,13 +18,13 @@ PORT_SEND = int(sys.argv[2])     # Porta que envia para o outro
 
 print(f"[INFO] Escutando na porta {PORT_LISTEN}, enviando para porta {PORT_SEND}")
 
-# =======================
+
 # Configurações do jogo
-# =======================
 SCREEN_WIDTH, SCREEN_HEIGHT = 600, 800
 BOARD_WIDTH, BOARD_HEIGHT = 600, 600
 FPS = 30
 PLAYER_SIZE = BOARD_WIDTH // 10
+
 
 GREY = (128, 128, 128)
 RED = (255, 0, 0)
@@ -37,17 +36,15 @@ local_pos = [1, 1]
 remote_pos = [1, 1]
 local_user = []
 
-# ===========================================
+
 # Criar socket UDP (cada um bind na SUA porta)
-# ===========================================
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(("", PORT_LISTEN))  # Cada instância usa porta diferente
 
 remote_addr = ("127.0.0.1", PORT_SEND)  # Envia localmente entre instâncias
 
-# =======================
+
 # Enviar posição continuamente
-# =======================
 def enviar_posicao():
     while True:
         try:
@@ -57,9 +54,8 @@ def enviar_posicao():
             print("[ERRO envio]:", e)
         time.sleep(0.1)
 
-# =======================
+
 # Receber posição remota
-# =======================
 def receber_posicao():
     global remote_pos
     while True:
@@ -92,15 +88,12 @@ def set_ship(x, y, user_ships):
     if (cx, cy) not in user_ships:
         user_ships.append((cx, cy))
 
-# =======================
+
 # Inicia Threads
-# =======================
 threading.Thread(target=enviar_posicao, daemon=True).start()
 threading.Thread(target=receber_posicao, daemon=True).start()
 
-# =======================
 # Pygame
-# =======================
 pygame.init()
 tela = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("UDP Multiplayer (Portas por parâmetro)")

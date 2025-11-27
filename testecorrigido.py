@@ -24,7 +24,8 @@ FPS = 30
 
 UDP_PORT = 5000
 TCP_PORT = 5001
-COOLDOWN = 5.0
+COOLDOWN_MOVE = 20.0
+COOLDOWN_ACTION = 10.0
 
 ship_x = random.randint(0, GRID_SIZE - 1)
 ship_y = random.randint(0, GRID_SIZE - 1)
@@ -36,6 +37,7 @@ pending_action = None
 pending_lock = threading.Lock()
 
 last_sent_time = 0.0
+last_cooldown_duration = 0.0
 last_sent_lock = threading.Lock()
 
 hits_received = 0
@@ -315,7 +317,7 @@ def tcp_listener_thread():
 
 
 def sender_thread():
-    global pending_action, ship_x, ship_y, last_sent_time
+    global pending_action, ship_x, ship_y, last_sent_time, last_cooldown_duration
 
     log("Sender thread iniciada.")
 
@@ -330,7 +332,7 @@ def sender_thread():
 
         with last_sent_lock:
             now = time.time()
-            wait = COOLDOWN - (now - last_sent_time)
+            wait = last_cooldown_duration - (now - last_sent_time)
         if wait > 0:
             time.sleep(wait)
 
@@ -363,6 +365,10 @@ def sender_thread():
 
         with last_sent_lock:
             last_sent_time = time.time()
+            if action[0] == "move":
+                last_cooldown_duration = COOLDOWN_MOVE
+            else:
+                last_cooldown_duration = COOLDOWN_ACTION
 
 
 # PYGAME UI
@@ -436,7 +442,8 @@ def draw():
 
     with last_sent_lock:
         passed = time.time() - last_sent_time
-    cd = max(0.0, COOLDOWN - passed)
+        lcd = last_cooldown_duration
+    cd = max(0.0, lcd - passed)
     screen.blit(font.render(f"Cooldown: {cd:.1f}s", True, (255, 200, 50)), (x0, y)); y += 26
 
     screen.blit(bigfont.render("Participantes", True, (200, 200, 220)), (x0, y)); y += 24
